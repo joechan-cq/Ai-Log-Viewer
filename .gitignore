@@ -1,0 +1,48 @@
+# 依赖
+node_modules
+
+# 构建产物
+dist
+dist-ssr
+# vite-plugin-pwa 在 dev 模式下生成的 SW 产物
+dev-dist
+# Vite 的依赖预构建缓存（也在 node_modules 里，这里兜底）
+.vite
+
+# 日志 —— 本应用的输入就是 .log/.jsonl 文件，别把测试样本提进仓库。
+# 确实要提交某个样本时用：git add -f sample.jsonl
+*.log
+*.jsonl
+*.ndjson
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 测试 / 覆盖率
+coverage
+.nyc_output
+
+# 编辑器与工具
+.claude/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+*.local
+*.tsbuildinfo
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db

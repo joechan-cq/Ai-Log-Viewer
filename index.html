@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d0f14" />
+    <title>AI Log Formatter</title>
+    <link rel="icon" href="icons/icon-192.png" />
+    <script>
+      // 首帧就定好主题，避免浅色用户看到深色闪屏（与 src/ui/theme.ts 保持一致）
+      try {
+        var t = localStorage.getItem('alf.theme') || 'system'
+        var resolved =
+          t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t
+        document.documentElement.dataset.theme = resolved
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute('content', resolved === 'light' ? '#f5f6f9' : '#0d0f14')
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
