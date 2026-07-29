@@ -91,6 +91,12 @@ npm run preview      # http://localhost:4173
 BASE_PATH=/Ai-Log-Formatter/ npm run build
 ```
 
+### 在线使用
+
+<https://joechan-cq.github.io/Ai-Log-Formatter/>
+
+推送到 `main` 会通过 [GitHub Actions](.github/workflows/deploy.yml) 自动构建部署。首次启用需要在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
+
 ## License
 
 Apache-2.0
