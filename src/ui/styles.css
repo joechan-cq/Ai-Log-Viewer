@@ -220,11 +220,34 @@ code { font-family: var(--mono); }
 .body { display: flex; flex: 1; min-height: 0; }
 
 .sidebar {
+  /* 宽度由 App 的 sidebarW 控制（行内样式），这里只给兜底值 */
   width: 300px; flex: 0 0 300px;
-  border-right: 1px solid var(--line);
   background: var(--bg-1);
   overflow-y: auto;
 }
+
+/* 大纲与内容区之间的可拖动分隔条：命中区 7px，视觉上只是 1px 的分割线 */
+.splitter {
+  flex: 0 0 7px;
+  position: relative;
+  cursor: col-resize;
+  background: var(--bg-1);
+  touch-action: none;
+}
+.splitter::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 3px;
+  width: 1px; background: var(--line);
+  transition: background .12s, box-shadow .12s;
+}
+.splitter:hover::before,
+body.resizing .splitter::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* 拖动期间禁止选中文本，并让整页光标保持 col-resize */
+body.resizing { cursor: col-resize; user-select: none; }
 
 .content { flex: 1; min-width: 0; overflow-y: auto; padding: 14px 16px 60vh; }
 

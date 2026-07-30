@@ -30,6 +30,15 @@ import {
 
 type Phase = 'idle' | 'parsing' | 'ready' | 'error'
 
+const DEFAULT_SIDEBAR_W = 300
+const SIDEBAR_KEY = 'alf.sidebarWidth'
+
+/** 保证大纲不会窄到看不清，也不会挤掉右侧内容区 */
+function clampSidebar(w: number): number {
+  const max = Math.min(680, Math.max(240, window.innerWidth - 420))
+  return Math.round(Math.min(max, Math.max(180, w)))
+}
+
 const KIND_LABEL: Record<NodeKindKey, string> = { text: '对话', thinking: '思考', tool: '工具', system: '系统' }
 
 export function App() {
@@ -51,6 +60,10 @@ export function App() {
   const [expSet, setExpSet] = useState<Set<string>>(new Set())
   const [expandAll, setExpandAll] = useState(false)
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  const [sidebarW, setSidebarW] = useState(() => {
+    const saved = Number(localStorage.getItem(SIDEBAR_KEY))
+    return clampSidebar(Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_SIDEBAR_W)
+  })
 
   const workerRef = useRef<Worker | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
@@ -64,6 +77,17 @@ export function App() {
     // 跟随系统时，系统切换要实时反映
     return theme === 'system' ? watchSystem(() => applyTheme('system')) : undefined
   }, [theme])
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_KEY, String(sidebarW))
+  }, [sidebarW])
+
+  useEffect(() => {
+    // 窗口变窄时重新收敛，避免大纲把内容区挤没
+    const onResize = () => setSidebarW((w) => clampSidebar(w))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     void listRecent().then(setRecent)
@@ -167,6 +191,27 @@ export function App() {
   }
 
   const openPicker = () => void pickFile().then((p) => p && load(p))
+
+  /** 拖动分隔条调整大纲宽度。用 pointer capture，指针滑出分隔条也不会丢事件 */
+  const startResize = (e: PointerEvent) => {
+    e.preventDefault()
+    const bar = e.currentTarget as HTMLElement
+    const startX = e.clientX
+    const startW = sidebarW
+    bar.setPointerCapture(e.pointerId)
+    document.body.classList.add('resizing')
+
+    const onMove = (ev: PointerEvent) => setSidebarW(clampSidebar(startW + ev.clientX - startX))
+    const onUp = () => {
+      document.body.classList.remove('resizing')
+      bar.removeEventListener('pointermove', onMove)
+      bar.removeEventListener('pointerup', onUp)
+      bar.removeEventListener('pointercancel', onUp)
+    }
+    bar.addEventListener('pointermove', onMove)
+    bar.addEventListener('pointerup', onUp)
+    bar.addEventListener('pointercancel', onUp)
+  }
 
   /**
    * 从统计面板跳到时间线某个节点。
@@ -328,9 +373,17 @@ export function App() {
 
       <div class="body">
         {phase === 'ready' && log && view === 'timeline' && (
-          <aside class="sidebar">
-            <Outline log={log} nodes={roots} agent={agent} onAgent={onPickAgent} />
-          </aside>
+          <>
+            <aside class="sidebar" style={{ flexBasis: `${sidebarW}px`, width: `${sidebarW}px` }}>
+              <Outline log={log} nodes={roots} agent={agent} onAgent={onPickAgent} />
+            </aside>
+            <div
+              class="splitter"
+              title="拖动调整宽度，双击复位"
+              onPointerDown={startResize}
+              onDblClick={() => setSidebarW(DEFAULT_SIDEBAR_W)}
+            />
+          </>
         )}
 
         <main class="content" ref={contentRef}>
