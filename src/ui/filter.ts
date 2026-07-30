@@ -16,16 +16,45 @@ export function isFilterActive(f: FilterState): boolean {
   return !!f.query.trim() || !!f.tool || !!f.agent || f.kinds.size !== ALL_KINDS.length
 }
 
-function searchableText(n: LogNode): string {
+/** 结构化结果里的字符串字段（Bash 的 stdout/stderr、Agent 的 content 等） */
+function structuredText(s?: Record<string, unknown>): string {
+  if (!s) return ''
+  const out: string[] = []
+  for (const v of Object.values(s)) if (typeof v === 'string' && v) out.push(v)
+  return out.join(' ')
+}
+
+function buildSearchable(n: LogNode): string {
   switch (n.kind) {
     case 'text':
     case 'thinking':
       return n.text
     case 'tool':
-      return `${n.name} ${n.label} ${JSON.stringify(n.input)} ${n.result?.text ?? ''} ${n.task?.summary ?? ''}`
+      return [
+        n.name,
+        n.label,
+        JSON.stringify(n.input),
+        n.result?.text ?? '',
+        structuredText(n.result?.structured),
+        n.task?.description ?? '',
+        n.task?.prompt ?? '',
+        n.task?.summary ?? '',
+      ].join(' ')
     case 'system':
       return `${n.title} ${n.subtype} ${n.rawJson ?? ''}`
   }
+}
+
+// 每次按键都会重新过滤整棵树，拼接结果按节点缓存，避免反复拼几 MB 字符串
+const cache = new WeakMap<LogNode, string>()
+
+function searchableText(n: LogNode): string {
+  let s = cache.get(n)
+  if (s === undefined) {
+    s = buildSearchable(n).toLowerCase()
+    cache.set(n, s)
+  }
+  return s
 }
 
 function matchSelf(n: LogNode, f: FilterState): boolean {
@@ -33,7 +62,7 @@ function matchSelf(n: LogNode, f: FilterState): boolean {
   if (f.tool && !(n.kind === 'tool' && n.name === f.tool)) return false
   if (f.agent && (n.agent ?? 'main') !== f.agent) return false
   const q = f.query.trim().toLowerCase()
-  if (q && !searchableText(n).toLowerCase().includes(q)) return false
+  if (q && !searchableText(n).includes(q)) return false
   return true
 }
 
