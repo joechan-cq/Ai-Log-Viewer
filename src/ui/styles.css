@@ -348,7 +348,16 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .jl:last-child { border-bottom: 0; }
 .jl:hover { background: var(--bg-2); }
-.jl .ic { flex: 0 0 14px; text-align: center; color: var(--fg-dim); font-size: 11px; }
+.jl .ic {
+  flex: 0 0 14px; text-align: center;
+  color: var(--fg-dim); font-size: 11px;
+  font-family: var(--mono);
+}
+
+/* 子 agent 在大纲里最需要一眼定位：紫色左边条 + 紫色菱形 + 名称加粗 */
+.jl.is-agent { border-left-color: var(--purple); }
+.jl.is-agent .ic { color: var(--purple); font-size: 10px; }
+.jl.is-agent .tx { color: var(--purple); font-weight: 600; }
 .jl .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jl-tool { border-left-color: var(--tool-generic); }
 .jl-tool .tx { font-family: var(--mono); font-size: 11.5px; }

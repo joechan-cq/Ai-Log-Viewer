@@ -40,7 +40,12 @@ export interface ToolStat {
 }
 
 export interface AgentStat {
+  /** 真正启动成功的次数（有 task_started 事件） */
   count: number
+  /** 发起过多少次调用（Agent/Task 工具调用数，含启动失败的） */
+  launches: number
+  /** 调用返回错误的次数（例如 model 参数非法，agent 压根没跑起来） */
+  failed: number
   totalTokens: number
   toolUses: number
   durationMs: number

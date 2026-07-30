@@ -141,7 +141,9 @@ export function StatsPanel({ log, onFilterTool, onFilterAgent, onJump }: Props) 
             <thead>
               <tr>
                 <th>subagent_type</th>
-                <th class="num">启动次数</th>
+                <th class="num">调用</th>
+                <th class="num">启动成功</th>
+                <th class="num">失败</th>
                 <th class="num">工具调用</th>
                 <th class="num">tokens</th>
                 <th class="num">峰值上下文</th>
@@ -154,7 +156,9 @@ export function StatsPanel({ log, onFilterTool, onFilterAgent, onJump }: Props) 
                 .map(([name, a]) => (
                   <tr key={name} class="clickable" onClick={() => onFilterAgent(name)} title="点击只看该 agent 的事件">
                     <td class="tool-name">{name}</td>
-                    <td class="num strong">{a.count}</td>
+                    <td class="num strong">{a.launches || a.count}</td>
+                    <td class="num">{a.count}</td>
+                    <td class={`num ${a.failed ? 'err' : 'dim'}`}>{a.failed || '—'}</td>
                     <td class="num">{a.toolUses || '—'}</td>
                     <td class="num">{fmtNum(a.totalTokens)}</td>
                     <td class="num">{fmtNum(stats.peakContextByAgent[name])}</td>

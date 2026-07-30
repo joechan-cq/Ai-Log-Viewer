@@ -57,10 +57,23 @@ function searchableText(n: LogNode): string {
   return s
 }
 
+/**
+ * 这个工具调用是不是在启动指定的子 agent。
+ *
+ * 光看 n.agent 不够：Agent 调用卡片本身发生在主会话里，靠"有后代命中"才被保留。
+ * 而启动失败的调用（比如 model 参数非法）压根没有子事件，就会被过滤掉 ——
+ * 恰恰是最该被看到的那条。
+ */
+function launchesAgent(n: LogNode, agent: string): boolean {
+  if (n.kind !== 'tool') return false
+  if (n.task?.subagentType === agent) return true
+  return typeof n.input.subagent_type === 'string' && n.input.subagent_type === agent
+}
+
 function matchSelf(n: LogNode, f: FilterState): boolean {
   if (!f.kinds.has(n.kind)) return false
   if (f.tool && !(n.kind === 'tool' && n.name === f.tool)) return false
-  if (f.agent && (n.agent ?? 'main') !== f.agent) return false
+  if (f.agent && (n.agent ?? 'main') !== f.agent && !launchesAgent(n, f.agent)) return false
   const q = f.query.trim().toLowerCase()
   if (q && !searchableText(n).includes(q)) return false
   return true

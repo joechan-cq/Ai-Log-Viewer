@@ -66,7 +66,7 @@ function toolStat(stats: Stats, name: string): ToolStat {
 }
 
 function agentStat(stats: Stats, name: string): AgentStat {
-  return (stats.agents[name] ??= { count: 0, totalTokens: 0, toolUses: 0, durationMs: 0 })
+  return (stats.agents[name] ??= { count: 0, launches: 0, failed: 0, totalTokens: 0, toolUses: 0, durationMs: 0 })
 }
 
 function parseTs(v: unknown): number | undefined {
@@ -650,6 +650,17 @@ export class Normalizer {
 
     for (const tool of this.toolByUseId.values()) {
       if (tool.ctxAdded) toolStat(this.stats, tool.name).ctxAdded += tool.ctxAdded
+    }
+
+    // 调用次数与失败数：启动失败的 agent 没有 task_started，只能从工具调用侧统计。
+    // 少了这一步，侧栏显示 "claude ×3" 而时间线里有 4 张卡片，对不上。
+    for (const tool of this.toolByUseId.values()) {
+      if (tool.name !== 'Agent' && tool.name !== 'Task') continue
+      const at = tool.task?.subagentType ?? str(tool.input.subagent_type)
+      if (!at) continue
+      const a = agentStat(this.stats, at)
+      a.launches++
+      if (tool.result?.isError) a.failed++
     }
 
     // 子 agent 的 token / 耗时汇总（后台 Bash 任务不算 agent）
