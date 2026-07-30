@@ -1,8 +1,12 @@
 const BLINKS = 6
 const BLINK_MS = 420
 
-/** 记住每个元素正在播的动画，重复跳转时先取消再重播 */
-const running = new WeakMap<Element, Animation>()
+/**
+ * 全局只允许一个高亮在闪。
+ * 用 WeakMap 按元素记的话，连续定位到不同节点时上一个还会继续闪，
+ * 屏幕上同时亮两处，反而分不清这次跳到哪了。
+ */
+let active: Animation | null = null
 
 /**
  * 跳转定位后让目标卡片边框闪几下。
@@ -13,7 +17,7 @@ const running = new WeakMap<Element, Animation>()
  * 同时用 box-shadow 而不是 border —— 不改变布局尺寸，不会干扰滚动定位。
  */
 export function flashElement(el: Element) {
-  running.get(el)?.cancel()
+  cancelFlash()
 
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6aa8ff'
   const off = '0 0 0 0 rgba(0,0,0,0)'
@@ -27,8 +31,16 @@ export function flashElement(el: Element) {
     ],
     { duration: BLINK_MS, iterations: BLINKS, easing: 'ease-in-out' },
   )
-  running.set(el, anim)
-  anim.finished.catch(() => {}).finally(() => {
-    if (running.get(el) === anim) running.delete(el)
-  })
+  active = anim
+  anim.finished
+    .catch(() => {}) // cancel 会让 finished 以 AbortError 拒绝
+    .finally(() => {
+      if (active === anim) active = null
+    })
+}
+
+/** 立刻停掉当前高亮（新的定位开始、或载入新文件时调用） */
+export function cancelFlash() {
+  active?.cancel()
+  active = null
 }

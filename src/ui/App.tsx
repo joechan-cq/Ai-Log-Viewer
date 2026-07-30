@@ -15,7 +15,7 @@ import { Timeline, type ExpandCtl } from './Timeline'
 import { StatsPanel } from './StatsPanel'
 import { Outline } from './Outline'
 import { ViewerHost } from './Viewer'
-import { flashElement } from './flash'
+import { cancelFlash, flashElement } from './flash'
 import { fmtBytes, fmtMs } from './format'
 import {
   applyTheme,
@@ -70,6 +70,7 @@ export function App() {
   const contentRef = useRef<HTMLElement | null>(null)
   const scrollPos = useRef<Record<'timeline' | 'stats', number>>({ timeline: 0, stats: 0 })
   const skipRestore = useRef(false)
+  const jumpToken = useRef(0)
 
   useEffect(() => {
     applyTheme(theme)
@@ -111,6 +112,8 @@ export function App() {
     setExpSet(new Set())
     setExpandAll(false)
     scrollPos.current = { timeline: 0, stats: 0 }
+    jumpToken.current++
+    cancelFlash()
     setFileInfo({ name: file.name, size: file.size })
     setProgress({ bytes: 0, total: file.size, lines: 0 })
     const t0 = performance.now()
@@ -239,9 +242,12 @@ export function App() {
     setExpandAll(false)
     setExpSet(new Set(path))
 
+    // 上一次跳转的校正循环可能还在跑，会和这次抢滚动位置，用令牌作废掉
+    const token = ++jumpToken.current
     let tries = 0
     let flashed = false
     const settle = () => {
+      if (token !== jumpToken.current) return
       const host = contentRef.current
       const el = document.getElementById(nodeId)
       if (host && el) {
