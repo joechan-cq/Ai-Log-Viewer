@@ -1,5 +1,6 @@
 import type { LogNode, ParsedLog } from '../model/types'
 import { fmtNum } from './format'
+import { flashElement } from './flash'
 
 const ICON: Record<string, string> = { text: '💬', thinking: '💭', tool: '⚙', system: '·' }
 
@@ -36,9 +37,9 @@ export function Outline({
 
   const jump = (id: string) => {
     const el = document.getElementById(id)
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    el?.classList.add('flash')
-    setTimeout(() => el?.classList.remove('flash'), 900)
+    if (!el) return
+    el.scrollIntoView({ block: 'center' })
+    flashElement(el)
   }
 
   return (

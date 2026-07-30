@@ -264,7 +264,12 @@ function TokenPanel({ log, onJump }: { log: ParsedLog; onJump: (nodeId?: string)
         </thead>
         <tbody>
           {ranked.slice(0, topN).map((r) => (
-            <tr key={r.messageId} class="clickable" onClick={() => onJump(r.nodeId)} title="跳到时间线对应位置">
+            <tr
+              key={r.messageId}
+              class={r.nodeId ? 'clickable' : 'no-anchor'}
+              onClick={() => onJump(r.nodeId)}
+              title={r.nodeId ? '跳到时间线对应位置' : '这次请求没有产出可见内容（思考正文已被日志剥离），无法定位'}
+            >
               <td class="num dim">{r.lineNo}</td>
               <td>
                 <span class={r.agent === 'main' ? 'dim' : 'agent-tag'}>{r.agent === 'main' ? '主会话' : r.agent}</span>

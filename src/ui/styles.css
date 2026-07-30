@@ -357,11 +357,9 @@ code { font-family: var(--mono); }
   border-radius: var(--radius);
   overflow: hidden;
 }
-.card.flash { animation: flash 900ms ease-out; }
-@keyframes flash {
-  0% { box-shadow: 0 0 0 2px var(--accent); }
-  100% { box-shadow: 0 0 0 2px transparent; }
-}
+/* 跳转高亮的闪烁由 flash.ts 用 Web Animations API 驱动（见那里的注释）。
+   这里只保证系统事件那种没有 .card 的行也有圆角，box-shadow 才不会是直角。 */
+.node { border-radius: var(--radius); }
 
 .card-head {
   display: flex; align-items: center; gap: 8px;
@@ -631,6 +629,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .tbl .tool-name { position: relative; font-family: var(--mono); color: var(--cyan); }
 .sorts { display: flex; align-items: center; }
 .tbl .step-label { max-width: 460px; }
+.tbl tr.no-anchor { cursor: default; }
+.tbl tr.no-anchor td { color: var(--fg-dim); }
 .tbl .step-label .rel { position: relative; }
 .tbl .agent-tag { color: var(--purple); font-family: var(--mono); font-size: 11.5px; }
 .panel .note { margin: 10px 0 0; line-height: 1.6; }

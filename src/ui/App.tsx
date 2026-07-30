@@ -2,11 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { ParsedLog, WorkerResponse } from '../model/types'
 import { fileFromDrop, hasFsAccess, onLaunchWithFile, pickFile, type Picked } from '../fs/pickers'
 import { forgetFile, listRecent, rememberFile, reopen, type RecentEntry } from '../fs/handleStore'
-import { ALL_KINDS, countNodes, filterTree, isFilterActive, type FilterState, type NodeKindKey } from './filter'
+import {
+  ALL_KINDS,
+  countNodes,
+  filterTree,
+  isFilterActive,
+  pathToNode,
+  type FilterState,
+  type NodeKindKey,
+} from './filter'
 import { Timeline, type ExpandCtl } from './Timeline'
 import { StatsPanel } from './StatsPanel'
 import { Outline } from './Outline'
 import { ViewerHost } from './Viewer'
+import { flashElement } from './flash'
 import { fmtBytes, fmtMs } from './format'
 import {
   applyTheme,
@@ -161,11 +170,18 @@ export function App() {
 
   /**
    * 从统计面板跳到时间线某个节点。
-   * 节点可能被过滤掉、或藏在折叠的子 agent 里，所以先清过滤，
-   * 找不到时再打开"全部展开"重试几帧。
+   *
+   * 三个坑：
+   *  1. 节点可能被过滤掉 —— 先清掉所有过滤条件
+   *  2. 节点可能藏在折叠的子 agent 里 —— 只展开它的祖先链，不要"全部展开"
+   *     （全部展开会把 200+ 条子 agent 记录一次性铺开，还会跟 expSet 的
+   *      异或语义打架，把本来该开的卡片关掉）
+   *  3. 卡片带 content-visibility，屏外高度是估算值。滚动过程中真实高度陆续
+   *     测出来，布局会往下挪 —— 所以用瞬时滚动，并在随后几帧持续校正，
+   *     用平滑滚动的话动画途中布局一变，落点就飘了
    */
   const jumpToNode = (nodeId?: string) => {
-    if (!nodeId) return
+    if (!nodeId || !log) return
     skipRestore.current = true
     switchView('timeline')
     setQuery('')
@@ -173,19 +189,28 @@ export function App() {
     setAgent(undefined)
     setKinds(new Set(ALL_KINDS))
 
+    const path = pathToNode(log.roots, nodeId)
+    if (!path) return
+    setExpandAll(false)
+    setExpSet(new Set(path))
+
     let tries = 0
-    const tryScroll = () => {
+    let flashed = false
+    const settle = () => {
+      const host = contentRef.current
       const el = document.getElementById(nodeId)
-      if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        el.classList.add('flash')
-        setTimeout(() => el.classList.remove('flash'), 900)
-        return
+      if (host && el) {
+        const offset = el.getBoundingClientRect().top - host.getBoundingClientRect().top - host.clientHeight / 3
+        if (Math.abs(offset) > 2) host.scrollTop += offset
+        if (!flashed) {
+          flashed = true
+          flashElement(el)
+        }
       }
-      if (tries === 1) setExpandAll(true) // 大概率藏在折叠的子 agent 里
-      if (tries++ < 8) requestAnimationFrame(tryScroll)
+      // 找到之后再校正几帧，等 content-visibility 把真实高度补齐
+      if (tries++ < (flashed ? 6 : 15)) requestAnimationFrame(settle)
     }
-    requestAnimationFrame(tryScroll)
+    requestAnimationFrame(settle)
   }
 
   const onDrop = (e: DragEvent) => {

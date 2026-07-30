@@ -196,6 +196,8 @@ export class Normalizer {
   private seenMessageIds = new Set<string>()
   /** agent → 等待下一次请求的 cacheCreate 来做上下文归因的工具节点 */
   private pendingAttrib = new Map<string, ToolNode[]>()
+  /** message.id → 请求记录，用于把跳转锚点绑到该消息真正产出的第一个节点 */
+  private requestByMessageId = new Map<string, TokenRequest>()
   private seq = 0
 
   private bucket(key: string): LogNode[] {
@@ -328,24 +330,30 @@ export class Normalizer {
         ctxTotal,
       }
       this.stats.requests.push(request)
+      this.requestByMessageId.set(messageId, request)
     }
 
-    // 下一个被创建的节点就会拿到这个 id，用作统计面板跳转时间线的锚点
-    const seqBefore = this.seq
-    if (request) request.nodeId = `n${seqBefore}`
+    /**
+     * 统计面板跳转时间线的锚点 = 这条消息产出的第一个节点。
+     * 不能用「预测下一个自增 id」的做法：一条消息可能拆成多条事件，
+     * 也可能只含被剥离的空思考块、什么节点都不产生，
+     * 预测出来的 id 会被后面别的消息拿走，跳转就跳错人了。
+     */
+    const req = messageId ? this.requestByMessageId.get(messageId) : undefined
+    const anchor = (id: string) => {
+      if (req && !req.nodeId) req.nodeId = id
+    }
 
     if (typeof content === 'string') {
       if (content.trim()) {
         this.stats.counts.textBlocks++
-        this.bucket(bucketKey).push({ ...base, id: this.nextId(), kind: 'text', role: 'assistant', text: content })
+        const id = this.nextId()
+        anchor(id)
+        this.bucket(bucketKey).push({ ...base, id, kind: 'text', role: 'assistant', text: content })
       }
-      if (request && this.seq === seqBefore) request.nodeId = undefined
       return
     }
-    if (!Array.isArray(content)) {
-      if (request) request.nodeId = undefined
-      return
-    }
+    if (!Array.isArray(content)) return
 
     for (const b of content as Record<string, unknown>[]) {
       switch (b.type) {
@@ -353,7 +361,9 @@ export class Normalizer {
           const text = String(b.text ?? '')
           if (!text.trim()) break
           this.stats.counts.textBlocks++
-          this.bucket(bucketKey).push({ ...base, id: this.nextId(), kind: 'text', role: 'assistant', text })
+          const id = this.nextId()
+          anchor(id)
+          this.bucket(bucketKey).push({ ...base, id, kind: 'text', role: 'assistant', text })
           break
         }
         case 'thinking': {
@@ -361,7 +371,9 @@ export class Normalizer {
           this.stats.counts.thinkingBlocks++
           // stream-json 通常只保留 signature、剥掉思考正文；空的思考块渲染出来就是一排空卡片
           if (text.trim()) {
-            this.bucket(bucketKey).push({ ...base, id: this.nextId(), kind: 'thinking', text })
+            const id = this.nextId()
+            anchor(id)
+            this.bucket(bucketKey).push({ ...base, id, kind: 'thinking', text })
           } else {
             this.stats.counts.emptyThinkingBlocks++
           }
@@ -383,9 +395,11 @@ export class Normalizer {
           }
           if (name.startsWith('mcp__')) bump(this.stats.mcpCalls, name)
 
+          const nodeId = this.nextId()
+          anchor(nodeId)
           const node: ToolNode = {
             ...base,
-            id: this.nextId(),
+            id: nodeId,
             kind: 'tool',
             toolUseId,
             name,

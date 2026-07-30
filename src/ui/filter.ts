@@ -82,6 +82,22 @@ export function filterTree(nodes: LogNode[], f: FilterState): LogNode[] {
   return out
 }
 
+/**
+ * 找到目标节点的祖先链（都是 Agent 工具节点）。
+ * 子 agent 的时间线只在父卡片展开时才渲染，跳转前必须把这条链上的卡片打开。
+ * 返回 null 表示树里没有这个节点。
+ */
+export function pathToNode(nodes: LogNode[], targetId: string): string[] | null {
+  for (const n of nodes) {
+    if (n.id === targetId) return []
+    if (n.kind === 'tool' && n.children.length) {
+      const sub = pathToNode(n.children, targetId)
+      if (sub) return [n.id, ...sub]
+    }
+  }
+  return null
+}
+
 export function countNodes(nodes: LogNode[]): number {
   let n = 0
   for (const node of nodes) {
