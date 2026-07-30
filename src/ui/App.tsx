@@ -45,6 +45,9 @@ export function App() {
 
   const workerRef = useRef<Worker | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const contentRef = useRef<HTMLElement | null>(null)
+  const scrollPos = useRef<Record<'timeline' | 'stats', number>>({ timeline: 0, stats: 0 })
+  const skipRestore = useRef(false)
 
   useEffect(() => {
     applyTheme(theme)
@@ -74,6 +77,7 @@ export function App() {
     setLog(null)
     setExpSet(new Set())
     setExpandAll(false)
+    scrollPos.current = { timeline: 0, stats: 0 }
     setFileInfo({ name: file.name, size: file.size })
     setProgress({ bytes: 0, total: file.size, lines: 0 })
     const t0 = performance.now()
@@ -122,13 +126,35 @@ export function App() {
     }
   }, [expSet, expandAll, query, tool])
 
+  /**
+   * 时间线和统计共用同一个滚动容器，所以切换视图时要各自记住/恢复滚动位置，
+   * 否则在时间线滚到一半切到统计，统计也是滚到一半的状态。
+   */
+  const switchView = (next: 'timeline' | 'stats') => {
+    if (next === view) return
+    const el = contentRef.current
+    if (el) scrollPos.current[view] = el.scrollTop
+    setView(next)
+  }
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    // jumpToNode 会自己滚到目标节点，别被恢复逻辑抢走
+    if (skipRestore.current) {
+      skipRestore.current = false
+      return
+    }
+    el.scrollTop = scrollPos.current[view] ?? 0
+  }, [view])
+
   const onPickTool = (name: string) => {
     setTool((t) => (t === name ? undefined : name))
-    setView('timeline')
+    switchView('timeline')
   }
   const onPickAgent = (name?: string) => {
     setAgent((a) => (a === name ? undefined : name))
-    setView('timeline')
+    switchView('timeline')
   }
 
   const openPicker = () => void pickFile().then((p) => p && load(p))
@@ -140,7 +166,8 @@ export function App() {
    */
   const jumpToNode = (nodeId?: string) => {
     if (!nodeId) return
-    setView('timeline')
+    skipRestore.current = true
+    switchView('timeline')
     setQuery('')
     setTool(undefined)
     setAgent(undefined)
@@ -207,10 +234,10 @@ export function App() {
               onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
             />
             <div class="tabs">
-              <button class={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>
+              <button class={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => switchView('timeline')}>
                 时间线
               </button>
-              <button class={`tab ${view === 'stats' ? 'active' : ''}`} onClick={() => setView('stats')}>
+              <button class={`tab ${view === 'stats' ? 'active' : ''}`} onClick={() => switchView('stats')}>
                 统计
               </button>
             </div>
@@ -281,7 +308,7 @@ export function App() {
           </aside>
         )}
 
-        <main class="content">
+        <main class="content" ref={contentRef}>
           {phase === 'idle' && <Dropzone onOpen={openPicker} recent={recent} onRecent={load} onForget={(k) => void forgetFile(k).then(() => void listRecent().then(setRecent))} />}
 
           {phase === 'parsing' && (
