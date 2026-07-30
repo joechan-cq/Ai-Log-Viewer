@@ -47,8 +47,8 @@ export function StatsPanel({ log, onFilterTool, onFilterAgent, onJump }: Props) 
           <Tile label="会话时长" value={fmtMs(stats.wallClockMs)} sub={fmtDateTime(session.startedAt)} />
           <Tile label="峰值上下文" value={fmtNum(stats.peakContext)} sub={`${stats.requests.length} 次 API 请求`} />
           <Tile
-            label="上下文写入"
-            value={fmtNum(stats.tokens.cacheCreate)}
+            label="上下文增长"
+            value={fmtNum(stats.tokens.ctxGrowth)}
             sub={`缓存读取 ${fmtNum(stats.tokens.cacheRead)}`}
           />
         </div>
@@ -232,26 +232,28 @@ function TokenPanel({ log, onJump }: { log: ParsedLog; onJump: (nodeId?: string)
   const { stats } = log
   const [topN, setTopN] = useState(15)
 
-  const ranked = useMemo(
-    () => [...stats.requests].sort((a, b) => b.cacheCreate - a.cacheCreate),
-    [stats.requests],
-  )
+  const ranked = useMemo(() => [...stats.requests].sort((a, b) => b.ctxDelta - a.ctxDelta), [stats.requests])
   if (ranked.length === 0) return null
 
-  const maxCreate = Math.max(1, ranked[0].cacheCreate)
-  const totalCreate = stats.tokens.cacheCreate
+  const maxDelta = Math.max(1, ranked[0].ctxDelta)
+  const totalGrowth = Math.max(1, stats.tokens.ctxGrowth)
 
   return (
     <section class="panel">
       <div class="panel-head">
         <h2>Token 消耗 · 最贵的步骤</h2>
-        <span class="dim small">按上下文增量排序，点行跳到时间线</span>
+        <span class="dim small">按上下文增量排序，点行跳到造成它的那一步</span>
       </div>
 
       <div class="tiles">
-        <Tile label="上下文写入合计" value={fmtNum(totalCreate)} sub="新进入上下文的 token" />
-        <Tile label="缓存读取合计" value={fmtNum(stats.tokens.cacheRead)} sub="每次请求重读的上下文累计" />
+        <Tile label="上下文增长合计" value={fmtNum(stats.tokens.ctxGrowth)} sub="真正进入过上下文的 token" />
         <Tile label="峰值上下文" value={fmtNum(stats.peakContext)} sub="单次请求的最大上下文" />
+        <Tile
+          label="缓存写入合计"
+          value={fmtNum(stats.tokens.cacheCreate)}
+          sub="含缓存失效后的重写，会大于实际增长"
+        />
+        <Tile label="缓存读取合计" value={fmtNum(stats.tokens.cacheRead)} sub="每次请求重读的上下文累计" />
         <Tile label="API 请求数" value={ranked.length.toLocaleString()} sub="已按 message.id 去重" />
       </div>
 
@@ -260,33 +262,46 @@ function TokenPanel({ log, onJump }: { log: ParsedLog; onJump: (nodeId?: string)
           <tr>
             <th class="num">行号</th>
             <th>agent</th>
-            <th>这一步做了什么</th>
+            <th>是哪一步塞进来的</th>
             <th class="num">上下文增量</th>
             <th class="num">占比</th>
-            <th class="num">当时上下文</th>
+            <th class="num">之后的上下文</th>
+            <th class="num">缓存写入</th>
           </tr>
         </thead>
         <tbody>
-          {ranked.slice(0, topN).map((r) => (
-            <tr
-              key={r.messageId}
-              class={r.nodeId ? 'clickable' : 'no-anchor'}
-              onClick={() => onJump(r.nodeId)}
-              title={r.nodeId ? '跳到时间线对应位置' : '这次请求没有产出可见内容（思考正文已被日志剥离），无法定位'}
-            >
-              <td class="num dim">{r.lineNo}</td>
-              <td>
-                <span class={r.agent === 'main' ? 'dim' : 'agent-tag'}>{r.agent === 'main' ? '主会话' : r.agent}</span>
-              </td>
-              <td class="mono step-label">
-                <span class="bar" style={{ width: `${(r.cacheCreate / maxCreate) * 100}%` }} />
-                <span class="rel">{r.label}</span>
-              </td>
-              <td class="num strong">+{r.cacheCreate.toLocaleString()}</td>
-              <td class="num dim">{((r.cacheCreate / totalCreate) * 100).toFixed(1)}%</td>
-              <td class="num dim">{fmtNum(r.ctxTotal)}</td>
-            </tr>
-          ))}
+          {ranked.slice(0, topN).map((r) => {
+            const initial = r.causeNodeId == null && r.causeLineNo == null
+            return (
+              <tr
+                key={r.messageId}
+                class={r.causeNodeId ? 'clickable' : 'no-anchor'}
+                onClick={() => onJump(r.causeNodeId)}
+                title={
+                  r.causeNodeId
+                    ? '跳到造成这段增量的那一步'
+                    : initial
+                      ? '该 agent 实例的初始上下文，没有对应的时间线节点'
+                      : '造成增量的那一步没有产出可见内容，无法定位'
+                }
+              >
+                <td class="num dim">{r.causeLineNo ?? '—'}</td>
+                <td>
+                  <span class={r.agent === 'main' ? 'dim' : 'agent-tag'}>{r.agent === 'main' ? '主会话' : r.agent}</span>
+                </td>
+                <td class="mono step-label">
+                  <span class="bar" style={{ width: `${(r.ctxDelta / maxDelta) * 100}%` }} />
+                  <span class="rel">{r.causeLabel}</span>
+                </td>
+                <td class="num strong">+{r.ctxDelta.toLocaleString()}</td>
+                <td class="num dim">{((r.ctxDelta / totalGrowth) * 100).toFixed(1)}%</td>
+                <td class="num dim">{fmtNum(r.ctxTotal)}</td>
+                <td class={`num ${r.cacheCreate > r.ctxDelta * 2 + 1000 ? 'warn' : 'dim'}`}>
+                  {fmtNum(r.cacheCreate)}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
       {topN < ranked.length && (
@@ -296,8 +311,13 @@ function TokenPanel({ log, onJump }: { log: ParsedLog; onJump: (nodeId?: string)
       )}
 
       <p class="dim small note">
-        上下文增量取自 <code>cache_creation_input_tokens</code>，等于该次请求相对上一次多出来的上下文，是精确值。
-        每个 agent 的第一次请求（system prompt / skill 指令）没有前序步骤，会以「thinking」或首个动作的名义出现在榜上。
+        上下文增量 = 该次请求的上下文总量减去<b>同一 agent 实例</b>上一次请求的总量。按实例算是必须的 ——
+        同一种 agent 可能被启动多次，每个实例的上下文都从零开始。增量归因到<b>上一步</b>，因为多出来的
+        token 是上一步的结果塞进来的；每个实例的第一次请求没有上一步，记作初始上下文。
+        <br />
+        <b>不要用 <code>cache_creation_input_tokens</code> 当增量</b>：缓存前缀失效时会整段重写，
+        它会暴涨而上下文其实没怎么长（实测有一条 cacheCreate 报 190,636，真实增量只有 1,796）。
+        「缓存写入」列明显高于增量时会标黄，那就是发生了缓存重写。
         <br />
         日志里的 <code>output_tokens</code> 是 message_start 时的快照（一个 5,900 字符的 Write 调用只报 3），
         不能当输出量用，因此这里不展示。

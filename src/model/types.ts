@@ -62,13 +62,23 @@ export interface TokenRequest {
   /** 这次请求产出了什么（工具名 + 摘要 / 文本首行） */
   label: string
   input: number
-  /** 写入缓存的新增 token —— 等于相对上一次请求的上下文增量，是「这一步多贵」的精确指标 */
+  /**
+   * 本次写入缓存的 token。注意它 **不等于** 上下文增量：
+   * 缓存前缀失效时会整段重写，cacheCreate 会暴涨而上下文其实没怎么长
+   * （实测有一条 cacheCreate=190,636 而真实增量只有 1,796）。
+   */
   cacheCreate: number
   cacheRead: number
   /** message_start 时的快照，严重偏低，不能当输出量用 */
   output: number
   /** 本次请求的上下文总量 = input + cacheCreate + cacheRead */
   ctxTotal: number
+  /** 相对同一 agent 实例上一次请求的上下文增量 —— 这才是「这一步多贵」 */
+  ctxDelta: number
+  /** 这段增量是谁造成的：上一步的动作（首次请求则是该实例的初始上下文） */
+  causeLabel: string
+  causeNodeId?: string
+  causeLineNo?: number
 }
 
 export interface Stats {
@@ -90,7 +100,14 @@ export interface Stats {
   agents: Record<string, AgentStat>
   /** 后台任务数（task_type=local_bash，即被 backgrounded 的 Bash） */
   backgroundTasks: number
-  tokens: { input: number; output: number; cacheRead: number; cacheCreate: number }
+  tokens: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreate: number
+    /** 所有请求的上下文增量之和 = 整个会话真正进入过上下文的 token 量 */
+    ctxGrowth: number
+  }
   /** 按 message.id 去重后的逐请求 token 画像 */
   requests: TokenRequest[]
   /** 上下文峰值（单次请求的 ctxTotal 最大值） */

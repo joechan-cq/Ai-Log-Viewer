@@ -33,7 +33,7 @@ function emptyStats(): Stats {
     slashCommands: {},
     agents: {},
     backgroundTasks: 0,
-    tokens: { input: 0, output: 0, cacheRead: 0, cacheCreate: 0 },
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, ctxGrowth: 0 },
     requests: [],
     peakContext: 0,
     peakContextByAgent: {},
@@ -194,8 +194,10 @@ export class Normalizer {
   private seenTasks = new Set<string>()
   /** 一个 API 响应会拆成多条 assistant 事件，usage 只能按 message.id 记一次 */
   private seenMessageIds = new Set<string>()
-  /** agent → 等待下一次请求的 cacheCreate 来做上下文归因的工具节点 */
+  /** agent 实例（parent_tool_use_id）→ 等待下一次请求的增量来做归因的工具节点 */
   private pendingAttrib = new Map<string, ToolNode[]>()
+  /** agent 实例 → 上一次请求，用来算上下文增量并归因到上一步 */
+  private lastRequestByInstance = new Map<string, TokenRequest>()
   /** message.id → 请求记录，用于把跳转锚点绑到该消息真正产出的第一个节点 */
   private requestByMessageId = new Map<string, TokenRequest>()
   private seq = 0
@@ -310,13 +312,24 @@ export class Normalizer {
       this.stats.peakContext = Math.max(this.stats.peakContext, ctxTotal)
       this.stats.peakContextByAgent[agentKey] = Math.max(this.stats.peakContextByAgent[agentKey] ?? 0, ctxTotal)
 
-      // 归因：本次请求新写入缓存的 token，就是上一轮那些工具调用塞进上下文的量
-      const pending = this.pendingAttrib.get(agentKey)
-      if (pending?.length && cacheCreate > 0) {
-        const each = cacheCreate / pending.length
+      /*
+       * 上下文增量按「agent 实例」算，键用 bucketKey（parent_tool_use_id），
+       * 不能用 subagent_type：同一种 agent 会被启动多次，每个实例的上下文都是
+       * 从零开始的，按类型分组会把"新实例启动"误判成"上下文被压缩"（实测出现 5 次负增量，
+       * 换成实例键后为 0，且增量总和与各实例峰值之和完全相等）。
+       */
+      const prev = this.lastRequestByInstance.get(bucketKey)
+      const ctxDelta = Math.max(0, ctxTotal - (prev?.ctxTotal ?? 0))
+
+      // 归因：这段增量是上一轮那些工具调用的结果塞进来的
+      const pending = this.pendingAttrib.get(bucketKey)
+      if (pending?.length && ctxDelta > 0) {
+        const each = ctxDelta / pending.length
         for (const tool of pending) tool.ctxAdded = (tool.ctxAdded ?? 0) + each
       }
-      this.pendingAttrib.set(agentKey, [])
+      this.pendingAttrib.set(bucketKey, [])
+
+      t.ctxGrowth += ctxDelta
 
       request = {
         messageId,
@@ -328,9 +341,14 @@ export class Normalizer {
         cacheRead,
         output,
         ctxTotal,
+        ctxDelta,
+        causeLabel: prev ? prev.label : agentKey === MAIN_AGENT ? '会话初始上下文（system prompt 等）' : '子 agent 初始上下文（agent prompt 等）',
+        causeNodeId: prev?.nodeId,
+        causeLineNo: prev?.lineNo,
       }
       this.stats.requests.push(request)
       this.requestByMessageId.set(messageId, request)
+      this.lastRequestByInstance.set(bucketKey, request)
     }
 
     /**
@@ -409,10 +427,10 @@ export class Normalizer {
           }
           this.toolByUseId.set(toolUseId, node)
           this.bucket(bucketKey).push(node)
-          // 等下一次请求的 cacheCreate 来给它归因
-          const attrib = this.pendingAttrib.get(agentKey)
+          // 等下一次请求的上下文增量来给它归因（按 agent 实例，不是按类型）
+          const attrib = this.pendingAttrib.get(bucketKey)
           if (attrib) attrib.push(node)
-          else this.pendingAttrib.set(agentKey, [node])
+          else this.pendingAttrib.set(bucketKey, [node])
           this.drainPending(toolUseId)
           break
         }
