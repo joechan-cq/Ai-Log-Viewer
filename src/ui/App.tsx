@@ -29,6 +29,7 @@ import {
 } from './theme'
 
 type Phase = 'idle' | 'parsing' | 'ready' | 'error'
+type AllMode = 'auto' | 'open' | 'closed'
 
 const DEFAULT_SIDEBAR_W = 300
 const SIDEBAR_KEY = 'alf.sidebarWidth'
@@ -58,7 +59,7 @@ export function App() {
   const [kinds, setKinds] = useState<Set<NodeKindKey>>(new Set(ALL_KINDS))
 
   const [expSet, setExpSet] = useState<Set<string>>(new Set())
-  const [expandAll, setExpandAll] = useState(false)
+  const [allMode, setAllMode] = useState<AllMode>('auto')
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [sidebarW, setSidebarW] = useState(() => {
     const saved = Number(localStorage.getItem(SIDEBAR_KEY))
@@ -110,7 +111,7 @@ export function App() {
     setError('')
     setLog(null)
     setExpSet(new Set())
-    setExpandAll(false)
+    setAllMode('auto')
     scrollPos.current = { timeline: 0, stats: 0 }
     jumpToken.current++
     cancelFlash()
@@ -148,10 +149,21 @@ export function App() {
   const roots = useMemo(() => (log ? filterTree(log.roots, filter) : []), [log, filter])
   const matched = useMemo(() => (active ? countNodes(roots) : 0), [roots, active])
 
+  /**
+   * 展开状态是三态的：
+   *  auto   —— 各卡片用自己的默认值（对话默认开，工具/思考默认关）
+   *  open   —— 用户点了"全部展开"
+   *  closed —— 用户点了"全部折叠"
+   * expSet 存的是"相对当前基准被手动翻转过"的节点。
+   * 搜索/工具过滤时临时视作全开，否则搜到了还得一个个点开。
+   */
   const exp: ExpandCtl = useMemo(() => {
-    const base = expandAll || !!query.trim() || !!tool
+    const forced: AllMode = allMode === 'auto' && (query.trim() || tool) ? 'open' : allMode
     return {
-      isOpen: (id) => expSet.has(id) !== base,
+      isOpen: (id, defaultOpen = false) => {
+        const base = forced === 'auto' ? defaultOpen : forced === 'open'
+        return expSet.has(id) ? !base : base
+      },
       toggle: (id) =>
         setExpSet((s) => {
           const n = new Set(s)
@@ -160,7 +172,7 @@ export function App() {
           return n
         }),
     }
-  }, [expSet, expandAll, query, tool])
+  }, [expSet, allMode, query, tool])
 
   /**
    * 时间线和统计共用同一个滚动容器，所以切换视图时要各自记住/恢复滚动位置，
@@ -239,7 +251,7 @@ export function App() {
 
     const path = pathToNode(log.roots, nodeId)
     if (!path) return
-    setExpandAll(false)
+    setAllMode('auto')
     setExpSet(new Set(path))
 
     // 上一次跳转的校正循环可能还在跑，会和这次抢滚动位置，用令牌作废掉
@@ -320,11 +332,11 @@ export function App() {
             <button
               class="btn"
               onClick={() => {
-                setExpandAll((v) => !v)
+                setAllMode((m) => (m === 'open' ? 'closed' : 'open'))
                 setExpSet(new Set())
               }}
             >
-              {expandAll ? '全部折叠' : '全部展开'}
+              {allMode === 'open' ? '全部折叠' : '全部展开'}
             </button>
           </>
         )}

@@ -8,7 +8,8 @@ import { openViewer } from './Viewer'
 const PREVIEW_LIMIT = 2000
 
 export interface ExpandCtl {
-  isOpen(id: string): boolean
+  /** defaultOpen 用于对话这类默认展开的卡片；"全部展开/折叠"会覆盖它 */
+  isOpen(id: string, defaultOpen?: boolean): boolean
   toggle(id: string): void
 }
 
@@ -42,7 +43,7 @@ function NodeView({
 }) {
   switch (node.kind) {
     case 'text':
-      return <TextCard node={node} />
+      return <TextCard node={node} exp={exp} />
     case 'thinking':
       return <ThinkingCard node={node} exp={exp} />
     case 'tool':
@@ -54,19 +55,28 @@ function NodeView({
 
 /* ---------- 文本 / 思考 ---------- */
 
-function TextCard({ node }: { node: TextNode }) {
+function TextCard({ node, exp }: { node: TextNode; exp: ExpandCtl }) {
   const me = node.role === 'user'
   const title = me ? '用户输入' : 'AI 回复'
+  // 对话是主内容，默认展开
+  const open = exp.isOpen(node.id, true)
   return (
     <section id={node.id} class={`node card ${me ? 'card-user' : 'card-assistant'}`}>
-      <header class="card-head">
+      <header class="card-head clickable" onClick={() => exp.toggle(node.id)}>
+        <Caret open={open} />
         <span class={`role ${me ? 'role-user' : 'role-assistant'}`}>{me ? '用户' : 'AI'}</span>
         {node.agent && <span class="chip chip-agent">{node.agent}</span>}
+        {!open && <span class="label dim">{oneLine(node.text, 120)}</span>}
         <span class="spacer" />
+        {!open && <span class="metric">{node.text.length.toLocaleString()} 字符</span>}
         <span class="ts">{fmtTime(node.ts)}</span>
       </header>
-      <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(clamp(node.text)) }} />
-      <MoreButton text={node.text} title={title} markdown />
+      {open && (
+        <>
+          <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(clamp(node.text)) }} />
+          <MoreButton text={node.text} title={title} markdown />
+        </>
+      )}
     </section>
   )
 }
