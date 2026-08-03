@@ -22,6 +22,13 @@
   --purple: #b78ce8;
   --cyan: #58c2d6;
   --pink: #d68ab8;
+  /* 耗时分档的暖度递进：琥珀 → 橙 → 红。
+     深色底上靠色相 + 饱和度就够；浅色那套要额外拉开亮度，见 light 里的注释。 */
+  --dur-mid: #e2c08d;
+  --dur-slow: #ff9147;
+  --dur-slow-bg: #38251a;
+  --dur-vslow: #ff6a63;
+  --dur-vslow-bg: #431f22;
 
   --code-bg: #0a0c11;
   --shell-bg: #07090d;
@@ -94,6 +101,13 @@
   --purple: #7238bf;
   --cyan: #0d6d87;
   --pink: #b0468a;
+  /* 白底上三档若只差色相会糊成一片深棕，所以同时拉开亮度和饱和度：
+     低饱和的橄榄金 → 高饱和亮橙 → 纯红，并给后两档配底色。 */
+  --dur-mid: #7d6a2a;
+  --dur-slow: #d2580b;
+  --dur-slow-bg: #fdeadb;
+  --dur-vslow: #c1121f;
+  --dur-vslow-bg: #fbdbdd;
 
   --code-bg: #fbfcfd;
   --shell-bg: #f4f6f9;
@@ -418,6 +432,23 @@ body.resizing { cursor: col-resize; user-select: none; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .ts { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; flex: 0 0 auto; }
 .metric { color: var(--fg-dim); font-family: var(--mono); font-size: 11px; flex: 0 0 auto; }
+
+/* 耗时分档：< 1s 灰 / 1~10s 琥珀 / 10~60s 橙 / ≥60s 红并加粗。
+   最慢那档不只靠颜色区分，避免色觉障碍下丢失信息。 */
+.dur-fast, .dur-none { color: var(--fg-dim); }
+.dur-mid { color: var(--dur-mid); }
+.dur-slow {
+  color: var(--dur-slow); font-weight: 600;
+  background: var(--dur-slow-bg);
+  padding: 1px 5px; border-radius: 4px;
+}
+.dur-vslow {
+  color: var(--dur-vslow); font-weight: 700;
+  background: var(--dur-vslow-bg);
+  padding: 1px 5px; border-radius: 4px;
+}
+/* 表格里的耗时单元格不套底色，避免整列花掉 */
+.tbl .dur-slow, .tbl .dur-vslow { background: transparent; padding: 4px 8px; }
 
 .chip {
   font-size: 10.5px; padding: 1px 6px; border-radius: 999px;

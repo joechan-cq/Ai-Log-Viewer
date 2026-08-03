@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks'
 import type { ParsedLog, ToolStat } from '../model/types'
-import { fmtBytes, fmtDateTime, fmtMs, fmtNum } from './format'
+import { durTone, fmtBytes, fmtDateTime, fmtMs, fmtNum } from './format'
 
 type SortKey = 'count' | 'name' | 'totalMs' | 'avgMs' | 'ctxAdded'
 
@@ -112,7 +112,7 @@ export function StatsPanel({ log, onFilterTool, onFilterAgent, onJump }: Props) 
                 <td class={`num ${t.error ? 'err' : 'dim'}`}>{t.error || '—'}</td>
                 <td class="num">{t.ctxAdded ? `+${fmtNum(Math.round(t.ctxAdded))}` : '—'}</td>
                 <td class="num">{t.totalMs ? fmtMs(t.totalMs) : '—'}</td>
-                <td class="num">{t.avgMs ? fmtMs(t.avgMs) : '—'}</td>
+                <td class={`num dur-${durTone(t.avgMs || undefined)}`}>{t.avgMs ? fmtMs(t.avgMs) : '—'}</td>
                 <td class="agents">{agentsLabel(t)}</td>
               </tr>
             ))}

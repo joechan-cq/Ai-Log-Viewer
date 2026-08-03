@@ -1,7 +1,7 @@
 import type { JSX } from 'preact'
 import type { ImageRef, LogNode, SystemNode, TextNode, ThinkingNode, ToolNode } from '../model/types'
 import { escapeHtml, highlight, langForPath, renderMarkdown } from './markdown'
-import { fmtMs, fmtNum, fmtTime } from './format'
+import { durTone, fmtMs, fmtNum, fmtTime } from './format'
 import { openViewer } from './Viewer'
 
 /** 卡片里最多预览这么多字符；超出的部分不在原地展开，一律走模态全文查看器 */
@@ -176,7 +176,7 @@ function ToolCard({
           </span>
         ) : null}
         {task?.totalTokens ? <span class="metric">{fmtNum(task.totalTokens)} tok</span> : null}
-        <span class="metric">{fmtMs(node.durationMs ?? task?.agentDurationMs)}</span>
+        <Duration ms={node.durationMs ?? task?.agentDurationMs} />
         <span class="ts">{fmtTime(node.ts)}</span>
       </header>
 
@@ -498,6 +498,12 @@ function DiffBlock({ oldText, newText }: { oldText: string; newText: string }) {
       ))}
     </div>
   )
+}
+
+/** 耗时按数量级分色，越慢越暖；最慢那档还会加粗，不只靠颜色区分 */
+function Duration({ ms }: { ms?: number }) {
+  const tone = durTone(ms)
+  return <span class={`metric dur-${tone}`}>{fmtMs(ms)}</span>
 }
 
 function Kv({ k, v }: { k: string; v: string }) {

@@ -14,6 +14,19 @@ export function fmtMs(ms?: number): string {
   return `${Math.floor(m / 60)}h${m % 60}m`
 }
 
+/**
+ * 耗时的视觉分档。阈值按数量级（1s / 10s / 60s）而不是单位边界切 ——
+ * 900ms 和 1.1s 本质是一回事，按 ms/s/m 切会让它们跳两个色阶。
+ * 快的那档保持灰色：正常速度不该抢注意力。
+ */
+export function durTone(ms?: number): 'fast' | 'mid' | 'slow' | 'vslow' | 'none' {
+  if (ms == null || !Number.isFinite(ms)) return 'none'
+  if (ms < 1000) return 'fast'
+  if (ms < 10_000) return 'mid'
+  if (ms < 60_000) return 'slow'
+  return 'vslow'
+}
+
 export function fmtNum(n?: number): string {
   if (n == null) return '—'
   if (n < 1000) return String(n)
