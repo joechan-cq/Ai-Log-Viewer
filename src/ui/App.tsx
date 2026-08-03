@@ -298,9 +298,15 @@ export function App() {
           <span>AI Log Formatter</span>
         </div>
 
-        <button class="btn primary" onClick={openPicker}>
-          打开日志
-        </button>
+        {/* 首屏中间已经有选择文件和最近打开了，顶栏再放一个是重复的 */}
+        {phase !== 'idle' && (
+          <OpenMenu
+            recent={recent}
+            onPickFile={openPicker}
+            onRecent={load}
+            onForget={(k) => void forgetFile(k).then(() => void listRecent().then(setRecent))}
+          />
+        )}
 
         {fileInfo && (
           <span class="fileinfo mono">
@@ -452,6 +458,93 @@ export function App() {
       </div>
 
       <ViewerHost />
+    </div>
+  )
+}
+
+/** 顶栏「打开日志」：先给最近打开的列表，再给「从本地打开…」，少一次文件选择框 */
+function OpenMenu({
+  recent,
+  onPickFile,
+  onRecent,
+  onForget,
+}: {
+  recent: RecentEntry[]
+  onPickFile: () => void
+  onRecent: (p: Picked) => void
+  onForget: (key: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  const close = () => {
+    setOpen(false)
+    setMsg('')
+  }
+
+  return (
+    <div class="menu-wrap">
+      <button class="btn primary" onClick={() => (open ? close() : setOpen(true))}>
+        打开日志 <span class="caret-down">▾</span>
+      </button>
+
+      {open && (
+        <>
+          {/* 点击任意处关闭；放在菜单之前，菜单的 z-index 更高 */}
+          <div class="menu-backdrop" onClick={close} />
+          <div class="menu">
+            <button
+              class="menu-item primary-item"
+              onClick={() => {
+                close()
+                onPickFile()
+              }}
+            >
+              从本地打开…
+            </button>
+
+            <div class="menu-sep">最近打开</div>
+            {recent.length === 0 ? (
+              <div class="menu-empty dim small">还没有记录</div>
+            ) : (
+              recent.map((r) => (
+                <div key={r.key} class="menu-row">
+                  <button
+                    class="menu-item mono"
+                    title={`${r.name} · ${fmtBytes(r.size)}`}
+                    onClick={() =>
+                      void reopen(r).then((f) => {
+                        if (f) {
+                          close()
+                          onRecent({ file: f, handle: r.handle })
+                        } else {
+                          setMsg(`无法重新打开 ${r.name}（文件已移动或权限被拒绝）`)
+                        }
+                      })
+                    }
+                  >
+                    <span class="mi-name">{r.name}</span>
+                    <span class="dim mi-size">{fmtBytes(r.size)}</span>
+                  </button>
+                  <button class="x" title="从列表移除" onClick={() => onForget(r.key)}>
+                    ✕
+                  </button>
+                </div>
+              ))
+            )}
+            {msg && <p class="warn small menu-msg">{msg}</p>}
+          </div>
+        </>
+      )}
     </div>
   )
 }
