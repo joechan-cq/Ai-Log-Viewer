@@ -55,19 +55,41 @@ export function onLaunchWithFile(cb: (picked: Picked) => void) {
   })
 }
 
-/** 拖拽：优先拿句柄（可存进最近打开），拿不到就退回 File */
-export async function fileFromDrop(e: DragEvent): Promise<Picked | null> {
-  const item = e.dataTransfer?.items?.[0]
-  if (item && 'getAsFileSystemHandle' in item) {
-    try {
-      const h = (await (item as DataTransferItem & {
-        getAsFileSystemHandle(): Promise<FileSystemHandle | null>
-      }).getAsFileSystemHandle()) as FileSystemFileHandle | null
-      if (h?.kind === 'file') return { file: await h.getFile(), handle: h }
-    } catch {
-      /* fall through */
+/**
+ * 拖拽：优先拿文件句柄（能存进"最近打开"），拿不到退回普通 File。
+ *
+ * dataTransfer 只在事件的同步阶段有效，一旦 await 过就被清空，
+ * 所以 files / items 必须在这里先同步取完，再进异步流程。
+ */
+export function fileFromDrop(e: DragEvent): Promise<Picked | null> {
+  const dt = e.dataTransfer
+  if (!dt) return Promise.resolve(null)
+
+  const file = dt.files?.[0] ?? null
+  const item = dt.items?.[0]
+  const wantHandle = !!item && item.kind === 'file' && 'getAsFileSystemHandle' in item
+
+  const handle: Promise<FileSystemFileHandle | null> = wantHandle
+    ? (item as DataTransferItem & { getAsFileSystemHandle(): Promise<FileSystemHandle | null> })
+        .getAsFileSystemHandle()
+        .then((h) => (h && h.kind === 'file' ? (h as FileSystemFileHandle) : null))
+        .catch(() => null)
+    : Promise.resolve(null)
+
+  return handle.then(async (h) => {
+    if (h) {
+      try {
+        return { file: await h.getFile(), handle: h }
+      } catch {
+        /* 句柄失效就退回同步取到的 File */
+      }
     }
-  }
-  const f = e.dataTransfer?.files?.[0]
-  return f ? { file: f } : null
+    return file ? { file } : null
+  })
+}
+
+/** 拖进来的是不是文件（而不是选中的文字、网页图片之类） */
+export function dragHasFile(e: DragEvent): boolean {
+  const types = e.dataTransfer?.types
+  return !!types && Array.prototype.includes.call(types, 'Files')
 }

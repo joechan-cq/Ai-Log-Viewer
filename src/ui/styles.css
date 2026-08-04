@@ -204,12 +204,14 @@ code { font-family: var(--mono); }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .app.dragging::after {
-  content: '松手即打开';
-  position: fixed; inset: 0; z-index: 50;
+  content: '松手即打开日志';
+  position: fixed; inset: 0; z-index: 200;
   display: grid; place-items: center;
   background: var(--overlay);
   border: 2px dashed var(--accent);
   color: var(--accent); font-size: 20px;
+  /* 拖拽事件挂在 window 上，遮罩不该拦任何指针事件（万一状态卡住也不会锁死界面） */
+  pointer-events: none;
 }
 
 .topbar {

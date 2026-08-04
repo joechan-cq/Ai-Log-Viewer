@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { ParsedLog, WorkerResponse } from '../model/types'
-import { fileFromDrop, hasFsAccess, onLaunchWithFile, pickFile, type Picked } from '../fs/pickers'
+import { dragHasFile, fileFromDrop, hasFsAccess, onLaunchWithFile, pickFile, type Picked } from '../fs/pickers'
 import { forgetFile, listRecent, rememberFile, reopen, type RecentEntry } from '../fs/handleStore'
 import {
   ALL_KINDS,
@@ -79,6 +79,55 @@ export function App() {
     // 跟随系统时，系统切换要实时反映
     return theme === 'system' ? watchSystem(() => applyTheme('system')) : undefined
   }, [theme])
+
+  /**
+   * 拖拽打开：监听挂在 window 上，不挂在根 div。
+   * 只挂根 div 的话，落在它没覆盖到的区域（或模态窗口上）的 drop 会走浏览器默认行为 ——
+   * Chrome 会直接导航到 file:// 打开原始日志，把应用顶掉，看起来就像不支持拖拽。
+   * dragenter/dragleave 用计数器配对，否则在子元素之间移动时提示会疯狂闪烁。
+   */
+  useEffect(() => {
+    let depth = 0
+
+    const onEnter = (e: DragEvent) => {
+      if (!dragHasFile(e)) return
+      e.preventDefault()
+      depth++
+      setDragging(true)
+    }
+    const onOver = (e: DragEvent) => {
+      if (!dragHasFile(e)) return
+      e.preventDefault() // 不调用它 drop 事件根本不会触发
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const onLeave = (e: DragEvent) => {
+      if (!dragHasFile(e)) return
+      depth = Math.max(0, depth - 1)
+      if (depth === 0) setDragging(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      // 无论是不是文件都要阻止默认行为，否则浏览器会导航走
+      e.preventDefault()
+      depth = 0
+      setDragging(false)
+      if (!dragHasFile(e)) return
+      void fileFromDrop(e).then((p) => {
+        if (p) load(p)
+        else setError('拖入的内容里没有可读取的文件')
+      })
+    }
+
+    window.addEventListener('dragenter', onEnter)
+    window.addEventListener('dragover', onOver)
+    window.addEventListener('dragleave', onLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onEnter)
+      window.removeEventListener('dragover', onOver)
+      window.removeEventListener('dragleave', onLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, String(sidebarW))
@@ -276,22 +325,8 @@ export function App() {
     requestAnimationFrame(settle)
   }
 
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault()
-    setDragging(false)
-    void fileFromDrop(e).then((p) => p && load(p))
-  }
-
   return (
-    <div
-      class={`app ${dragging ? 'dragging' : ''}`}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragging(true)
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
-    >
+    <div class={`app ${dragging ? 'dragging' : ''}`}>
       <header class="topbar">
         <div class="brand">
           <span class="logo">▤</span>
