@@ -27,6 +27,17 @@ export function durTone(ms?: number): 'fast' | 'mid' | 'slow' | 'vslow' | 'none'
   return 'vslow'
 }
 
+/**
+ * 间隔标记的分档。间隔本身已经过滤掉 10s 以下的，
+ * 若直接套用 durTone（1s/10s/60s）就只剩橙和红两档，看不出递进，
+ * 所以把阈值整体上移到 30s / 60s / 5min，让三档都用得上。
+ */
+export function gapTone(ms: number): 'mid' | 'slow' | 'vslow' {
+  if (ms < 30_000) return 'mid'
+  if (ms < 60_000) return 'slow'
+  return 'vslow'
+}
+
 export function fmtNum(n?: number): string {
   if (n == null) return '—'
   if (n < 1000) return String(n)

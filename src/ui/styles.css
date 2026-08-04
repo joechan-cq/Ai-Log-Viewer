@@ -431,6 +431,45 @@ body.resizing { cursor: col-resize; user-select: none; }
   border-left: 2px solid var(--nest-line);
 }
 
+/* ---------- 时间间隔标记 ----------
+ * 开启后在时间线右侧让出一栏（卡片相应变窄），方括号纵向跨在相邻两张卡片之间，
+ * 所以它不占垂直空间：高度为 0，靠绝对定位骑在两张卡片的边界上。 */
+
+.timeline.with-gaps { padding-right: var(--gap-col); }
+:root { --gap-col: 72px; }
+
+.gap {
+  position: relative;
+  height: 0;
+  /* 插进来会多出一份 flex 行距（8px 变两份），上下各收 4px 正好抵消这一份，
+     卡片间距保持原样。收 -8px 会把原本那份也吃掉，卡片就贴到一起了。 */
+  margin: -4px 0;
+}
+.gap-mark {
+  /* 顶边正好落在两张卡片之间的中点。
+     用 left:100%（= 卡片区右边界）定位而不是 right 负值：
+     后者锚的是整块的右边，括号位置会随时长文案的宽窄前后飘。 */
+  position: absolute; top: 0; left: 100%; margin-left: 8px;
+  transform: translateY(-50%);
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+}
+/* 高度要明显小于「卡片高 + 行距」，否则相邻两个间隔的括号会首尾相接、连成一条线 */
+.gap-bracket {
+  width: 6px; height: 22px;
+  border: 1px solid var(--line); border-left: 0;
+  border-radius: 0 4px 4px 0;
+}
+.gap-label { font-family: var(--mono); font-size: 11px; color: var(--fg-dim); }
+/* 不要色块底：这里是窄栏，底色会显得脏 */
+.gap-label.dur-mid, .gap-label.dur-slow, .gap-label.dur-vslow { background: transparent; padding: 0; }
+/* 方括号跟着分档一起变色，光看文字色在边栏容易滑过去 */
+.gap-mid .gap-bracket { border-color: var(--dur-mid); }
+.gap-slow .gap-bracket { border-color: var(--dur-slow); }
+.gap-vslow .gap-bracket { border-color: var(--dur-vslow); border-width: 1.5px; }
+
+.sep-v { width: 1px; height: 16px; background: var(--line); margin: 0 4px; }
+
 /* 变高虚拟化：Chrome 原生跳过屏外渲染，比手写虚拟列表更省事也更稳 */
 .node {
   content-visibility: auto;

@@ -33,6 +33,7 @@ type AllMode = 'auto' | 'open' | 'closed'
 
 const DEFAULT_SIDEBAR_W = 300
 const SIDEBAR_KEY = 'alf.sidebarWidth'
+const GAPS_KEY = 'alf.showGaps'
 
 /** 保证大纲不会窄到看不清，也不会挤掉右侧内容区 */
 function clampSidebar(w: number): number {
@@ -61,6 +62,7 @@ export function App() {
   const [expSet, setExpSet] = useState<Set<string>>(new Set())
   const [allMode, setAllMode] = useState<AllMode>('auto')
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  const [showGaps, setShowGaps] = useState(() => localStorage.getItem(GAPS_KEY) !== '0')
   const [sidebarW, setSidebarW] = useState(() => {
     const saved = Number(localStorage.getItem(SIDEBAR_KEY))
     return clampSidebar(Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_SIDEBAR_W)
@@ -132,6 +134,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, String(sidebarW))
   }, [sidebarW])
+
+  useEffect(() => {
+    localStorage.setItem(GAPS_KEY, showGaps ? '1' : '0')
+  }, [showGaps])
 
   useEffect(() => {
     // 窗口变窄时重新收敛，避免大纲把内容区挤没
@@ -419,6 +425,14 @@ export function App() {
               agent = {agent === 'main' ? '主会话' : agent} ✕
             </button>
           )}
+          <span class="sep-v" />
+          <button
+            class={`chip-btn ${showGaps ? 'on' : ''}`}
+            title="在相邻卡片之间标出两个时间戳的跨度（≥10s）"
+            onClick={() => setShowGaps((v) => !v)}
+          >
+            间隔
+          </button>
           <span class="spacer" />
           {active ? (
             <span class="dim small">命中 {matched} 个节点</span>
@@ -481,7 +495,7 @@ export function App() {
                   <p class="dim">没有匹配的节点</p>
                 </div>
               ) : (
-                <Timeline nodes={roots} exp={exp} onFilterTool={onPickTool} />
+                <Timeline nodes={roots} exp={exp} onFilterTool={onPickTool} showGaps={showGaps} />
               )}
             </>
           )}

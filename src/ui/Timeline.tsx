@@ -1,7 +1,7 @@
-import type { JSX } from 'preact'
+import { Fragment, type JSX } from 'preact'
 import type { ImageRef, LogNode, SystemNode, TextNode, ThinkingNode, ToolNode } from '../model/types'
 import { escapeHtml, highlight, langForPath, renderMarkdown } from './markdown'
-import { durTone, fmtMs, fmtNum, fmtTime } from './format'
+import { durTone, fmtMs, fmtNum, fmtTime, gapTone } from './format'
 import { openViewer } from './Viewer'
 
 /** 卡片里最多预览这么多字符；超出的部分不在原地展开，一律走模态全文查看器 */
@@ -13,19 +13,53 @@ export interface ExpandCtl {
   toggle(id: string): void
 }
 
+/** 小于这个间隔不显示 —— 几秒的间隙是正常流水，只标出真正卡住的地方 */
+const MIN_GAP_MS = 10_000
+
 interface TimelineProps {
   nodes: LogNode[]
   exp: ExpandCtl
   depth?: number
   onFilterTool?: (name: string) => void
+  /** 在相邻卡片之间标出时间间隔（大致就是 LLM 的思考时长） */
+  showGaps?: boolean
 }
 
-export function Timeline({ nodes, exp, depth = 0, onFilterTool }: TimelineProps) {
+export function Timeline({ nodes, exp, depth = 0, onFilterTool, showGaps }: TimelineProps) {
   return (
-    <div class="timeline" data-depth={depth}>
-      {nodes.map((n) => (
-        <NodeView key={n.id} node={n} exp={exp} depth={depth} onFilterTool={onFilterTool} />
+    <div class={`timeline ${showGaps ? 'with-gaps' : ''}`} data-depth={depth}>
+      {nodes.map((n, i) => (
+        <Fragment key={n.id}>
+          {showGaps && i > 0 && <Gap prev={nodes[i - 1]} next={n} />}
+          <NodeView node={n} exp={exp} depth={depth} onFilterTool={onFilterTool} showGaps={showGaps} />
+        </Fragment>
       ))}
+    </div>
+  )
+}
+
+/**
+ * 相邻两张卡片之间的时间跨度：两个时间戳之差，
+ * 也就是卡片上显示的两个时刻之间隔了多久（含上一步自身的执行耗时）。
+ */
+function Gap({ prev, next }: { prev: LogNode; next: LogNode }) {
+  const from = prev.ts
+  const to = next.ts
+  if (!from || !to) return null
+  const ms = to - from
+  if (ms < MIN_GAP_MS) return null
+  const tone = gapTone(ms)
+  const ran =
+    prev.kind === 'tool' && prev.durationMs ? `，其中上一步自身执行 ${fmtMs(prev.durationMs)}` : ''
+  return (
+    <div
+      class={`gap gap-${tone}`}
+      title={`跨度 ${fmtMs(ms)}：${fmtTime(from)} → ${fmtTime(to)}${ran}`}
+    >
+      <span class="gap-mark">
+        <span class="gap-bracket" />
+        <span class={`gap-label dur-${tone}`}>{fmtMs(ms)}</span>
+      </span>
     </div>
   )
 }
@@ -35,11 +69,13 @@ function NodeView({
   exp,
   depth,
   onFilterTool,
+  showGaps,
 }: {
   node: LogNode
   exp: ExpandCtl
   depth: number
   onFilterTool?: (name: string) => void
+  showGaps?: boolean
 }) {
   switch (node.kind) {
     case 'text':
@@ -47,7 +83,7 @@ function NodeView({
     case 'thinking':
       return <ThinkingCard node={node} exp={exp} />
     case 'tool':
-      return <ToolCard node={node} exp={exp} depth={depth} onFilterTool={onFilterTool} />
+      return <ToolCard node={node} exp={exp} depth={depth} onFilterTool={onFilterTool} showGaps={showGaps} />
     case 'system':
       return <SystemCard node={node} exp={exp} />
   }
@@ -133,11 +169,13 @@ function ToolCard({
   exp,
   depth,
   onFilterTool,
+  showGaps,
 }: {
   node: ToolNode
   exp: ExpandCtl
   depth: number
   onFilterTool?: (name: string) => void
+  showGaps?: boolean
 }) {
   const open = exp.isOpen(node.id)
   const err = node.result?.isError
@@ -191,7 +229,13 @@ function ToolCard({
               <summary>
                 子 agent 时间线 · {task?.subagentType ?? node.agent ?? 'agent'} · {node.children.length} 条
               </summary>
-              <Timeline nodes={node.children} exp={exp} depth={depth + 1} onFilterTool={onFilterTool} />
+              <Timeline
+                nodes={node.children}
+                exp={exp}
+                depth={depth + 1}
+                onFilterTool={onFilterTool}
+                showGaps={showGaps}
+              />
             </details>
           )}
 
