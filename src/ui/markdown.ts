@@ -51,6 +51,19 @@ marked.use({
   },
 })
 
+/**
+ * Read 工具返回的文件内容带 `   12\t` 这样的行号前缀，直接按 markdown 渲染会全乱。
+ * 前若干行里大多数都符合行号格式时才剥离，避免误伤正文里恰好以数字开头的内容。
+ */
+export function stripLineNumbers(text: string): string {
+  const lines = text.split('\n')
+  const sample = lines.slice(0, 40).filter((l) => l.length > 0)
+  if (sample.length < 3) return text
+  const numbered = sample.filter((l) => /^\s*\d+\t/.test(l)).length
+  if (numbered / sample.length < 0.8) return text
+  return lines.map((l) => l.replace(/^\s*\d+\t/, '')).join('\n')
+}
+
 export function renderMarkdown(src: string): string {
   const html = marked.parse(src, { async: false })
   return DOMPurify.sanitize(html, { ADD_ATTR: ['target'] })

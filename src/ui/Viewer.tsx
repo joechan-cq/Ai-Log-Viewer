@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import type { ImageRef } from '../model/types'
-import { escapeHtml, highlight, renderMarkdown } from './markdown'
+import { escapeHtml, highlight, renderMarkdown, stripLineNumbers } from './markdown'
 import { ImageView } from './ImageView'
 
 export interface ViewerPayload {
@@ -128,7 +128,8 @@ export function ViewerHost() {
             // key 让切换图片时缩放状态重置
             <ImageView key={`${imgIndex}-${img.data.length}`} img={img} />
           ) : asMarkdown ? (
-            <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text ?? '') }} />
+            // 渲染模式下剥掉 Read 结果的行号前缀；"原文" 模式保留原样
+            <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(stripLineNumbers(text ?? '')) }} />
           ) : (
             <FullText text={text ?? ''} lang={lang} />
           )}

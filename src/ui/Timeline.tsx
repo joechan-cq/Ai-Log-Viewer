@@ -455,27 +455,40 @@ function TextBlock({ text, lang, tone, title }: { text: string; lang?: string; t
       <pre class={`block ${tone === 'err' ? 'block-err' : ''} ${long ? 'is-clipped' : ''}`}>
         <code class="hljs" dangerouslySetInnerHTML={{ __html: html }} />
       </pre>
-      {long && <MoreButton text={text} title={title} lang={lang} />}
+      {/* md 内容即使很短也给入口，否则没法看渲染效果 */}
+      <MoreButton text={text} title={title} lang={lang} always={lang === 'markdown'} />
     </>
   )
 }
 
-/** 统一的"查看全文"入口 —— 不在当前 UI 里原地展开 */
+/**
+ * 统一的"查看全文"入口 —— 不在当前 UI 里原地展开。
+ * always=true 时即使内容没被截断也显示按钮（md 需要一个入口去看渲染效果）。
+ */
 function MoreButton({
   text,
   title,
   lang,
   markdown,
+  always,
 }: {
   text: string
   title: string
   lang?: string
   markdown?: boolean
+  always?: boolean
 }) {
-  if (text.length <= PREVIEW_LIMIT) return null
+  const long = text.length > PREVIEW_LIMIT
+  if (!long && !always) return null
+  // .md 文件（Read 的结果、Write 的内容）在全文查看器里默认渲染，可切回原文
+  const asMd = markdown ?? lang === 'markdown'
   return (
-    <button class="more" onClick={() => openViewer({ title, text, lang, markdown })}>
-      查看全文（共 {text.length.toLocaleString()} 字符，还有 {(text.length - PREVIEW_LIMIT).toLocaleString()}）
+    <button class="more" onClick={() => openViewer({ title, text, lang, markdown: asMd })}>
+      {long
+        ? `查看全文（共 ${text.length.toLocaleString()} 字符，还有 ${(text.length - PREVIEW_LIMIT).toLocaleString()}）`
+        : asMd
+          ? '渲染 Markdown'
+          : '在大窗口查看'}
     </button>
   )
 }
