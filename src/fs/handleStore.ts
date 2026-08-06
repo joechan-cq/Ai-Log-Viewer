@@ -2,7 +2,7 @@
  * 用 IndexedDB 持久化 FileSystemFileHandle，实现"最近打开"离线秒开。
  * 句柄本身可结构化克隆，重新读取前需要 requestPermission。
  */
-const DB_NAME = 'ai-log-formatter'
+const DB_NAME = 'ai-log-viewer'
 const STORE = 'recent'
 const MAX_RECENT = 12
 

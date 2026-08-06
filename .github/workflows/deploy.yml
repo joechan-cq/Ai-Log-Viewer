@@ -34,7 +34,7 @@ jobs:
         run: npm run build
         env:
           # 必须与仓库名一致（前后都要有斜杠），否则页面能打开但静态资源 404
-          BASE_PATH: /Ai-Log-Formatter/
+          BASE_PATH: /Ai-Log-Viewer/
 
       - uses: actions/configure-pages@v5
 

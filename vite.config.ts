@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import preact from '@preact/preset-vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// BASE_PATH 用于部署到 GitHub Pages 子路径，例如 BASE_PATH=/Ai-Log-Formatter/ npm run build
+// BASE_PATH 用于部署到 GitHub Pages 子路径，例如 BASE_PATH=/Ai-Log-Viewer/ npm run build
 const base = process.env.BASE_PATH ?? './'
 
 export default defineConfig({
@@ -26,7 +26,7 @@ export default defineConfig({
         navigateFallback: 'index.html',
       },
       manifest: {
-        name: 'AI Log Formatter',
+        name: 'AI Log Viewer',
         short_name: 'AI Log',
         description: '离线查看并格式化 AI stream-json 日志',
         lang: 'zh-CN',

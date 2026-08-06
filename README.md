@@ -1,4 +1,4 @@
-# AI Log Formatter
+# AI Log Viewer
 
 把 AI 以 `--output-format stream-json` 输出的日志，变成能读的东西。
 
@@ -88,12 +88,12 @@ npm run preview      # http://localhost:4173
 部署到 GitHub Pages 这类子路径时指定 base：
 
 ```bash
-BASE_PATH=/Ai-Log-Formatter/ npm run build
+BASE_PATH=/Ai-Log-Viewer/ npm run build
 ```
 
 ### 在线使用
 
-<https://joechan-cq.github.io/Ai-Log-Formatter/>
+<https://joechan-cq.github.io/Ai-Log-Viewer/>
 
 推送到 `main` 会通过 [GitHub Actions](.github/workflows/deploy.yml) 自动构建部署。首次启用需要在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
 

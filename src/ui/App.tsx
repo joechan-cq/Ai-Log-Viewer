@@ -336,7 +336,7 @@ export function App() {
       <header class="topbar">
         <div class="brand">
           <span class="logo">▤</span>
-          <span>AI Log Formatter</span>
+          <span>AI Log Viewer</span>
         </div>
 
         {/* 首屏中间已经有选择文件和最近打开了，顶栏再放一个是重复的 */}
@@ -614,7 +614,7 @@ function Dropzone({
     <div class="center">
       <div class="dropzone">
         <div class="dz-icon">▤</div>
-        <h1>AI Log Formatter</h1>
+        <h1>AI Log Viewer</h1>
         <p class="dim">
           把 <code>--output-format stream-json</code> 的日志（.log / .jsonl）拖到这里，或
         </p>
