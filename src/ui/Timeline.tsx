@@ -211,6 +211,11 @@ function ToolCard({
       <header class="card-head clickable" onClick={() => exp.toggle(node.id)}>
         <Caret open={open} />
         <span
+          class="tool-id"
+        >
+          {node.id}
+        </span>
+        <span
           class="tool-name"
           title="只看这个工具"
           onClick={(e) => {

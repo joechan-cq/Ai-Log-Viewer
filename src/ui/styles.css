@@ -557,6 +557,10 @@ body.resizing { cursor: col-resize; user-select: none; }
   background: var(--bg-3); color: var(--cyan);
   flex: 0 0 auto; cursor: pointer;
 }
+.card-tool .tool-id {
+  font-family: var(--mono); font-size: 9px; color: var(--fg-dim);
+  flex: 0 0 auto;
+}
 .card-tool .tool-name:hover { outline: 1px solid var(--accent); }
 .tool-bash { border-left: 3px solid var(--tool-bash); }
 .tool-bash .tool-name { color: var(--tool-bash-fg); }
