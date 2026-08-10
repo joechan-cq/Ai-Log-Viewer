@@ -13,6 +13,7 @@ import {
 } from './filter'
 import { Timeline, type ExpandCtl } from './Timeline'
 import { StatsPanel } from './StatsPanel'
+import { SCOPE_ALL } from '../model/scope'
 import { Outline } from './Outline'
 import { ViewerHost } from './Viewer'
 import { cancelFlash, flashElement } from './flash'
@@ -63,6 +64,8 @@ export function App() {
   const [allMode, setAllMode] = useState<AllMode>('auto')
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [showGaps, setShowGaps] = useState(() => localStorage.getItem(GAPS_KEY) !== '0')
+  /** 统计范围：SCOPE_ALL / 'main' / 某次 Agent 调用的 tool_use_id */
+  const [scope, setScope] = useState<string>(SCOPE_ALL)
   const [sidebarW, setSidebarW] = useState(() => {
     const saved = Number(localStorage.getItem(SIDEBAR_KEY))
     return clampSidebar(Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_SIDEBAR_W)
@@ -167,6 +170,7 @@ export function App() {
     setLog(null)
     setExpSet(new Set())
     setAllMode('auto')
+    setScope(SCOPE_ALL)
     scrollPos.current = { timeline: 0, stats: 0 }
     jumpToken.current++
     cancelFlash()
@@ -495,13 +499,29 @@ export function App() {
                   <p class="dim">没有匹配的节点</p>
                 </div>
               ) : (
-                <Timeline nodes={roots} exp={exp} onFilterTool={onPickTool} showGaps={showGaps} />
+                <Timeline
+                  nodes={roots}
+                  exp={exp}
+                  onFilterTool={onPickTool}
+                  showGaps={showGaps}
+                  onScopeStats={(toolUseId) => {
+                    setScope(toolUseId)
+                    switchView('stats')
+                  }}
+                />
               )}
             </>
           )}
 
           {phase === 'ready' && log && view === 'stats' && (
-            <StatsPanel log={log} onFilterTool={onPickTool} onFilterAgent={onPickAgent} onJump={jumpToNode} />
+            <StatsPanel
+              log={log}
+              onFilterTool={onPickTool}
+              onFilterAgent={onPickAgent}
+              onJump={jumpToNode}
+              scope={scope}
+              onScope={setScope}
+            />
           )}
         </main>
       </div>

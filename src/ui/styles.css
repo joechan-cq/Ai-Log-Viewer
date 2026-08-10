@@ -770,6 +770,19 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 }
 .tbl .tool-name { position: relative; font-family: var(--mono); color: var(--cyan); }
 .sorts { display: flex; align-items: center; }
+
+/* 统计范围选择。不要 sticky：滚动容器有 padding，吸顶后上边缘会漏出下方内容，很难看 */
+.scope-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.scope-bar .chip-btn { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 卡片头部的小按钮（Agent 卡片上的「统计」） */
+.mini-btn {
+  flex: 0 0 auto;
+  background: var(--bg-3); color: var(--fg-dim);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 8px; font-size: 10.5px; cursor: pointer;
+}
+.mini-btn:hover { border-color: var(--accent); color: var(--accent); }
 .tbl .step-label { max-width: 460px; }
 .tbl tr.no-anchor { cursor: default; }
 .tbl tr.no-anchor td { color: var(--fg-dim); }

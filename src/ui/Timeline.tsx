@@ -23,15 +23,24 @@ interface TimelineProps {
   onFilterTool?: (name: string) => void
   /** 在相邻卡片之间标出时间间隔（大致就是 LLM 的思考时长） */
   showGaps?: boolean
+  /** 点 Agent 卡片上的「统计」：把统计面板切到该 agent 实例 */
+  onScopeStats?: (toolUseId: string) => void
 }
 
-export function Timeline({ nodes, exp, depth = 0, onFilterTool, showGaps }: TimelineProps) {
+export function Timeline({ nodes, exp, depth = 0, onFilterTool, showGaps, onScopeStats }: TimelineProps) {
   return (
     <div class={`timeline ${showGaps ? 'with-gaps' : ''}`} data-depth={depth}>
       {nodes.map((n, i) => (
         <Fragment key={n.id}>
           {showGaps && i > 0 && <Gap prev={nodes[i - 1]} next={n} />}
-          <NodeView node={n} exp={exp} depth={depth} onFilterTool={onFilterTool} showGaps={showGaps} />
+          <NodeView
+            node={n}
+            exp={exp}
+            depth={depth}
+            onFilterTool={onFilterTool}
+            showGaps={showGaps}
+            onScopeStats={onScopeStats}
+          />
         </Fragment>
       ))}
     </div>
@@ -70,12 +79,14 @@ function NodeView({
   depth,
   onFilterTool,
   showGaps,
+  onScopeStats,
 }: {
   node: LogNode
   exp: ExpandCtl
   depth: number
   onFilterTool?: (name: string) => void
   showGaps?: boolean
+  onScopeStats?: (toolUseId: string) => void
 }) {
   switch (node.kind) {
     case 'text':
@@ -83,7 +94,16 @@ function NodeView({
     case 'thinking':
       return <ThinkingCard node={node} exp={exp} />
     case 'tool':
-      return <ToolCard node={node} exp={exp} depth={depth} onFilterTool={onFilterTool} showGaps={showGaps} />
+      return (
+        <ToolCard
+          node={node}
+          exp={exp}
+          depth={depth}
+          onFilterTool={onFilterTool}
+          showGaps={showGaps}
+          onScopeStats={onScopeStats}
+        />
+      )
     case 'system':
       return <SystemCard node={node} exp={exp} />
   }
@@ -170,17 +190,20 @@ function ToolCard({
   depth,
   onFilterTool,
   showGaps,
+  onScopeStats,
 }: {
   node: ToolNode
   exp: ExpandCtl
   depth: number
   onFilterTool?: (name: string) => void
   showGaps?: boolean
+  onScopeStats?: (toolUseId: string) => void
 }) {
   const open = exp.isOpen(node.id)
   const err = node.result?.isError
   const task = node.task
   const imgCount = node.result?.images.length ?? 0
+  const isAgent = node.name === 'Agent' || node.name === 'Task'
   const cls = TOOL_CLASS[node.name] ?? (node.name.startsWith('mcp__') ? 'tool-mcp' : 'tool-generic')
 
   return (
@@ -202,6 +225,18 @@ function ToolCard({
         <span class="spacer" />
         {task?.status && <span class={`chip chip-status st-${task.status}`}>{task.status}</span>}
         {err && <span class="chip chip-err">error</span>}
+        {isAgent && onScopeStats && (
+          <button
+            class="mini-btn"
+            title="只统计这次 Agent 调用的数据"
+            onClick={(e) => {
+              e.stopPropagation()
+              onScopeStats(node.toolUseId)
+            }}
+          >
+            统计
+          </button>
+        )}
         {imgCount > 0 && (
           <span class="chip chip-img" title={`结果包含 ${imgCount} 张图片`}>
             <ImageIcon />

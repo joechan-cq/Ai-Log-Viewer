@@ -57,6 +57,8 @@ export interface TokenRequest {
   lineNo: number
   /** main 或 subagent_type */
   agent: string
+  /** agent 实例键：'main' 或该子 agent 的 parent_tool_use_id。同类型 agent 的多次启动靠它区分 */
+  instance: string
   /** 时间线跳转锚点 */
   nodeId?: string
   /** 这次请求产出了什么（工具名 + 摘要 / 文本首行） */

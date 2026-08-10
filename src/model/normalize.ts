@@ -335,6 +335,7 @@ export class Normalizer {
         messageId,
         lineNo: base.lineNo,
         agent: agentKey,
+        instance: bucketKey,
         label: labelForMessage(content),
         input,
         cacheCreate,
