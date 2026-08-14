@@ -66,6 +66,10 @@ export function App() {
   const [showGaps, setShowGaps] = useState(() => localStorage.getItem(GAPS_KEY) !== '0')
   /** 统计范围：SCOPE_ALL / 'main' / 某次 Agent 调用的 tool_use_id */
   const [scope, setScope] = useState<string>(SCOPE_ALL)
+  /** 按 g 打开的"跳到节点"输入框 */
+  const [gotoOpen, setGotoOpen] = useState(false)
+  const [gotoValue, setGotoValue] = useState('')
+  const [gotoErr, setGotoErr] = useState('')
   const [sidebarW, setSidebarW] = useState(() => {
     const saved = Number(localStorage.getItem(SIDEBAR_KEY))
     return clampSidebar(Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_SIDEBAR_W)
@@ -73,6 +77,7 @@ export function App() {
 
   const workerRef = useRef<Worker | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const gotoRef = useRef<HTMLInputElement | null>(null)
   const contentRef = useRef<HTMLElement | null>(null)
   const scrollPos = useRef<Record<'timeline' | 'stats', number>>({ timeline: 0, stats: 0 })
   const skipRestore = useRef(false)
@@ -143,6 +148,10 @@ export function App() {
   }, [showGaps])
 
   useEffect(() => {
+    if (gotoOpen) gotoRef.current?.focus()
+  }, [gotoOpen])
+
+  useEffect(() => {
     // 窗口变窄时重新收敛，避免大纲把内容区挤没
     const onResize = () => setSidebarW((w) => clampSidebar(w))
     window.addEventListener('resize', onResize)
@@ -153,9 +162,17 @@ export function App() {
     void listRecent().then(setRecent)
     onLaunchWithFile((p) => void load(p))
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+      // 光标在输入框里时不抢按键
+      const typing = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA'
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === '/') {
         e.preventDefault()
         searchRef.current?.focus()
+      } else if (e.key === 'g' || e.key === 'G') {
+        // g = goto，跳到指定节点 id
+        e.preventDefault()
+        setGotoErr('')
+        setGotoOpen(true)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -299,17 +316,18 @@ export function App() {
    *     测出来，布局会往下挪 —— 所以用瞬时滚动，并在随后几帧持续校正，
    *     用平滑滚动的话动画途中布局一变，落点就飘了
    */
-  const jumpToNode = (nodeId?: string) => {
-    if (!nodeId || !log) return
+  const jumpToNode = (nodeId?: string): boolean => {
+    if (!nodeId || !log) return false
+    // 先确认节点存在，再动视图状态，否则输错 id 会白清一次过滤条件
+    const path = pathToNode(log.roots, nodeId)
+    if (!path) return false
+
     skipRestore.current = true
     switchView('timeline')
     setQuery('')
     setTool(undefined)
     setAgent(undefined)
     setKinds(new Set(ALL_KINDS))
-
-    const path = pathToNode(log.roots, nodeId)
-    if (!path) return
     setAllMode('auto')
     setExpSet(new Set(path))
 
@@ -333,6 +351,28 @@ export function App() {
       if (tries++ < (flashed ? 6 : 15)) requestAnimationFrame(settle)
     }
     requestAnimationFrame(settle)
+    return true
+  }
+
+  /** 输入的节点 id 容错：n177 / N177 / 177 / 带空格，都归一成 n177 */
+  const normalizeNodeId = (raw: string): string | null => {
+    const m = /^\s*n?\s*(\d+)\s*$/i.exec(raw)
+    return m ? `n${m[1]}` : null
+  }
+
+  const submitGoto = () => {
+    const id = normalizeNodeId(gotoValue)
+    if (!id) {
+      setGotoErr('请输入节点 id，例如 n177')
+      return
+    }
+    if (jumpToNode(id)) {
+      setGotoOpen(false)
+      setGotoValue('')
+      setGotoErr('')
+    } else {
+      setGotoErr(`没有 ${id} 这个节点`)
+    }
   }
 
   return (
@@ -364,6 +404,10 @@ export function App() {
 
         {phase === 'ready' && (
           <>
+            {/* 快捷键不写出来没人知道 */}
+            <span class="small hint" title="按节点 id 定位，如 n177">
+              按 g 进行节点跳转
+            </span>
             <input
               ref={searchRef}
               class="search"
@@ -525,6 +569,32 @@ export function App() {
           )}
         </main>
       </div>
+
+      {gotoOpen && phase === 'ready' && (
+        <div class="goto-back" onClick={() => setGotoOpen(false)}>
+          <div class="goto-box" onClick={(e) => e.stopPropagation()}>
+            <label class="goto-label">跳到节点</label>
+            <input
+              ref={gotoRef}
+              class="search goto-input mono"
+              placeholder="节点 id，如 n177"
+              value={gotoValue}
+              onInput={(e) => {
+                setGotoValue((e.target as HTMLInputElement).value)
+                setGotoErr('')
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitGoto()
+                else if (e.key === 'Escape') setGotoOpen(false)
+              }}
+            />
+            <button class="btn primary" onClick={submitGoto}>
+              跳转
+            </button>
+          </div>
+          {gotoErr && <div class="goto-err warn small">{gotoErr}</div>}
+        </div>
+      )}
 
       <ViewerHost />
     </div>

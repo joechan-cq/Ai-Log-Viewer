@@ -281,6 +281,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 .btn.big { padding: 9px 20px; font-size: 15px; margin: 6px 0; }
 .btn.icon { padding: 4px 9px; font-size: 15px; line-height: 1.2; }
 
+/* 比 --fg-dim 再浅一档、比 .small 再小一号，只在需要时才被注意到 */
+.hint { white-space: nowrap; flex: 0 0 auto; color: var(--fg-faint); font-size: 11px; }
+
 .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .tab {
   background: var(--bg-2); color: var(--fg-dim);
@@ -632,6 +635,28 @@ details.subagent > summary { color: var(--purple); }
 .compact-res { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .compact-res .sub-title { margin: 0; flex: 0 0 auto; }
 .compact-res .mono { font-size: 12px; min-width: 0; }
+
+/* ---------- 跳到节点（按 g 唤起） ---------- */
+
+.goto-back {
+  position: fixed; inset: 0; z-index: 120;
+  background: transparent;
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 14vh;
+}
+.goto-box {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .4);
+}
+.goto-label { font-size: 13px; color: var(--fg-dim); flex: 0 0 auto; }
+.goto-input { width: 190px; }
+.goto-err {
+  margin-top: 8px; padding: 4px 10px;
+  background: var(--bg-1); border: 1px solid var(--warn-line); border-radius: 6px;
+}
 
 /* ---------- 全文查看器（模态） ---------- */
 
