@@ -185,9 +185,18 @@ export function App() {
     setPhase('parsing')
     setError('')
     setLog(null)
+    // 过滤条件不重置的话，新日志会被上一个文件的搜索词/工具过滤掉大半，
+    // 看起来就像"这个日志里东西怎么这么少"
+    setQuery('')
+    setTool(undefined)
+    setAgent(undefined)
+    setKinds(new Set(ALL_KINDS))
     setExpSet(new Set())
     setAllMode('auto')
     setScope(SCOPE_ALL)
+    setGotoOpen(false)
+    setGotoValue('')
+    setGotoErr('')
     scrollPos.current = { timeline: 0, stats: 0 }
     jumpToken.current++
     cancelFlash()
@@ -404,18 +413,23 @@ export function App() {
 
         {phase === 'ready' && (
           <>
-            {/* 快捷键不写出来没人知道 */}
-            <span class="small hint" title="按节点 id 定位，如 n177">
-              按 g 进行节点跳转
-            </span>
-            <input
-              ref={searchRef}
-              class="search"
-              type="search"
-              placeholder="搜索内容（/ 聚焦）"
-              value={query}
-              onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-            />
+            {/* 搜索、跳转、展开都只作用于时间线，在统计页显示纯属干扰 */}
+            {view === 'timeline' && (
+              <>
+                {/* 快捷键不写出来没人知道 */}
+                <span class="small hint" title="按节点 id 定位，如 n177">
+                  按 g 进行节点跳转
+                </span>
+                <input
+                  ref={searchRef}
+                  class="search"
+                  type="search"
+                  placeholder="搜索内容（/ 聚焦）"
+                  value={query}
+                  onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                />
+              </>
+            )}
             <div class="tabs">
               <button class={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => switchView('timeline')}>
                 时间线
@@ -424,15 +438,17 @@ export function App() {
                 统计
               </button>
             </div>
-            <button
-              class="btn"
-              onClick={() => {
-                setAllMode((m) => (m === 'open' ? 'closed' : 'open'))
-                setExpSet(new Set())
-              }}
-            >
-              {allMode === 'open' ? '全部折叠' : '全部展开'}
-            </button>
+            {view === 'timeline' && (
+              <button
+                class="btn"
+                onClick={() => {
+                  setAllMode((m) => (m === 'open' ? 'closed' : 'open'))
+                  setExpSet(new Set())
+                }}
+              >
+                {allMode === 'open' ? '全部折叠' : '全部展开'}
+              </button>
+            )}
           </>
         )}
 
@@ -445,7 +461,7 @@ export function App() {
         </button>
       </header>
 
-      {phase === 'ready' && log && (
+      {phase === 'ready' && log && view === 'timeline' && (
         <div class="filterbar">
           {ALL_KINDS.map((k) => (
             <button
